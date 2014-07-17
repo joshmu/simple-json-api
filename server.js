@@ -7,7 +7,7 @@ var app = express();
 var server = http.createServer(app);
 var port = 3000;
 
-app.set('port', port || process.env.PORT);
+app.set('port', process.env.PORT || port);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: true
