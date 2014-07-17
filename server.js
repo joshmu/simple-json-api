@@ -3,6 +3,44 @@ var http = require('http');
 var path = require('path');
 var bodyParser = require('body-parser');
 
+
+/*================================
+=            mongoose            =
+================================*/
+//https://devcenter.heroku.com/articles/nodejs-mongoose
+
+var mongoose = require('mongoose');
+/* connect */
+var mongoUri = process.env.MONGOLAB_URI ||
+    process.env.MONGOHQ_URL ||
+    'mongodb://localhost/test-api';
+
+mongoose.connect(mongoUri);
+
+var ItemSchema = mongoose.Schema({
+    type: String,
+    title: String,
+    content: String
+});
+
+/* schemas */
+var SiteSchema = mongoose.Schema({
+    dbName: String, //specified by admin
+    url: String,
+    title: String,
+    items: [ItemSchema]
+});
+
+
+/* model */
+var Site = mongoose.model('Site', SiteSchema);
+var Item = mongoose.model('Item', ItemSchema);
+
+/*========================
+=                        =
+========================*/
+
+
 var app = express();
 var server = http.createServer(app);
 var port = 3000;
@@ -31,43 +69,46 @@ app.use(allowCrossDomain);
 /**
  * ROUTES
  *
- * /[site]
+ * /[dbName]
  * GET > return all results
  * POST > add 'title'
  * PUT > change 'title'
  *
- * /[site]/items
+ * /[dbName]/items
  * GET > return 'items'
  * POST > add 'item'
  *
- * /[site]/items/[type]/[name]
+ * /[dbName]/items/[type]/[title]
  * GET > get specific item
- * EDIT > edit specific item of 'type' & 'name'
- * DELETE > delete specific item of 'type' & 'name' (use mongo _id later)
+ * EDIT > edit specific item of 'type' & 'title'
+ * DELETE > delete specific item of 'type' & 'title' (use mongo _id later)
  *
  **/
 app.get('/', function(req, res) {
-    var sites = [];
-    for (var key in db) {
-        if (db.hasOwnProperty(key)) {
-            sites.push(key);
+    var dbNames = [];
+
+    // Site.find(function())
+
+    for (var key in dbName) {
+        if (dbName.hasOwnProperty(key)) {
+            dbNames.push(key);
         }
     }
     res.json({
         message: 'This is Mu\'s api, you better know what you are doing.',
-        sites: sites
+        dbNames: dbNames
     });
 });
 
-app.param('site', function(req, res, next, site) {
-    req.site = site;
+app.param('dbName', function(req, res, next, dbName) {
+    req.dbName = dbName;
     next();
 });
 
-app.route('/:site')
+app.route('/:dbName')
     .get(function(req, res) {
-        var site = req.site;
-        res.json(db[site]);
+        var dbName = req.dbName;
+        res.json(dbName[dbName]);
     })
     .post(function(req, res) {
         res.json({
@@ -75,24 +116,24 @@ app.route('/:site')
         });
     })
     .put(function(req, res) {
-        console.log('updating site title');
+        console.log('updating dbName title');
         var title = req.body.title;
         console.log('req body > ', req.body);
-        db[req.site].title = title;
+        dbName[req.dbName].title = title;
         res.json({
             message: 'Title has been updated.'
         });
     });
 
-app.route('/:site/items')
+app.route('/:dbName/items')
     .get(function(req, res) {
-        res.json(db[req.site].items);
+        res.json(dbName[req.dbName].items);
     })
     .post(function(req, res) {
         var item = req.body;
-        var items = db[req.site].items;
-        if (!checkExists(items, item.type, item.name)) {
-            db[req.site].items.push(item);
+        var items = dbName[req.dbName].items;
+        if (!checkExists(items, item.type, item.title)) {
+            dbName[req.dbName].items.push(item);
             res.json({
                 message: 'item has been added.'
             });
@@ -104,20 +145,23 @@ app.param('type', function(req, res, next, type) {
     next();
 });
 
-app.param('name', function(req, res, next, name) {
-    req.name = name;
+app.param('title', function(req, res, next, title) {
+    req.title = title;
     next();
 });
 
-app.route('/:site/items/:type/:name')
+app.route('/:dbName/items/:type/:title')
     .get(function(req, res) {
-        var item = getItem(db[req.site].items, req.type, req.name);
-        res.json(item);
+        // var item = getMockItem(dbName[req.dbName].items, req.type, req.title);
+        //res.json(item);
+        getItem(req.dbName, req.type, req.title, function(data) {
+            res.json(data);
+        });
     })
     .put(function(req, res) {
-        var items = db[req.site].items;
+        var items = dbName[req.dbName].items;
         var newItem = req.body;
-        var checkUpdate = updateItem(items, req.type, req.name, newItem);
+        var checkUpdate = updateItem(items, req.type, req.title, newItem);
         if (checkUpdate) {
             res.json({
                 message: 'Item updated.'
@@ -129,8 +173,8 @@ app.route('/:site/items/:type/:name')
         }
     })
     .delete(function(req, res) {
-        var items = db[req.site].items;
-        var checkDelete = deleteItem(items, req.type, req.name);
+        var items = dbName[req.dbName].items;
+        var checkDelete = deleteItem(items, req.type, req.title);
         if (checkDelete) {
             res.json({
                 message: 'Item deleted.'
@@ -148,9 +192,9 @@ server.listen(app.get('port'), function(err) {
 
 
 //helper function to grab correct item
-function getItem(items, type, name) {
+function getMockItem(items, type, title) {
     return items.reduce(function(p, c, i, arr) {
-        if (c.type === type && c.name === name) {
+        if (c.type === type && c.title === title) {
             //found it
             p.push(c);
         }
@@ -158,11 +202,27 @@ function getItem(items, type, name) {
     }, []);
 }
 
+function getItem(dbName, type, title, cb) {
+    Site
+        .findOne({
+            'dbName' : dbName,
+            'items.type' : type,
+            'items.title' : title
+        })
+        .select('items.$')  //TODO: what does $ mean?
+        .exec(function(err, docs){
+            if(err) throw err;
+            //result is filtered down there should only be 1 item returned in items array
+            var item = docs.items[0];
+            cb(item);
+        });
+}
+
 //find and update item
-function updateItem(items, type, name, newItem) {
+function updateItem(items, type, title, newItem) {
     var updated = false;
     items.forEach(function(item, index, arr) {
-        if (item.type === type && item.name === name) {
+        if (item.type === type && item.title === title) {
             extendObj(item, newItem);
             updated = true;
         }
@@ -171,10 +231,10 @@ function updateItem(items, type, name, newItem) {
 }
 
 //find and delete item
-function deleteItem(items, type, name) {
+function deleteItem(items, type, title) {
     var deleted = false;
     items.forEach(function(item, index, arr) {
-        if (item.type === type && item.name === name) {
+        if (item.type === type && item.title === title) {
             //delete
             arr.splice(index, 1);
             deleted = true;
@@ -183,10 +243,10 @@ function deleteItem(items, type, name) {
     return deleted;
 }
 
-//check if item with type & name already exists
-function checkExists(items, type, name) {
+//check if item with type & title already exists
+function checkExists(items, type, title) {
     return items.some(function(item) {
-        return item.type === type && item.name === name;
+        return item.type === type && item.title === title;
     });
 }
 
@@ -203,61 +263,63 @@ function extendObj(obj1, obj2) {
 
 /*==========  mock database  ==========*/
 
-var mu_site = {
-    site: 'joshmu.com',
-    name: 'Mu',
+var mu = {
+    dbName: 'mu',
+    url: 'joshmu.com',
+    title: 'Mu',
     items: [{
         type: 'about',
-        name: 'About Me',
+        title: 'About Me',
         content: 'This is info about me, blah blah blah.'
     }, {
         type: 'contact',
-        name: 'My Contact Info',
+        title: 'My Contact Info',
         content: '119A Seaforth Cres, Seaforth, NSW 2092'
     }]
 };
 
-var wong_site = {
-    site: 'jesswong.com.au',
-    name: 'JESS WONG',
+// new Site({
+//     dbName: 'wong',
+//     url: 'jesswong.com.au',
+//     title: 'JESS WONG',
+//     items: [{
+//         type: 'about',
+//         title: 'Info on Me!',
+//         content: 'Did you know I can dance!?'
+//     }, {
+//         type: 'article',
+//         title: 'Time to start moving',
+//         content: 'It\'s that year again where we should all get up off the couch and start moving around!  Let\'s eat healthy and happily!'
+//     }, {
+//         type: 'contact',
+//         title: 'Message me',
+//         content: 'jesslmwong@gmail.com'
+//     }]
+// }).save(function(err, docs){
+//     console.log(err || 'success');
+//     console.log(docs);
+// });
+
+var wong = {
+    dbName: 'wong',
+    url: 'jesswong.com.au',
+    title: 'JESS WONG',
     items: [{
         type: 'about',
-        name: 'Info on Me!',
+        title: 'Info on Me!',
         content: 'Did you know I can dance!?'
     }, {
         type: 'article',
-        name: 'Time to start moving',
+        title: 'Time to start moving',
         content: 'It\'s that year again where we should all get up off the couch and start moving around!  Let\'s eat healthy and happily!'
     }, {
         type: 'contact',
-        name: 'Message me',
+        title: 'Message me',
         content: 'jesslmwong@gmail.com'
     }]
 };
 
 var db = {
-    'mu': mu_site,
-    'wong': wong_site
+    'mu': mu,
+    'wong': wong
 };
-
-/*================================
-=            mongoose            =
-================================*/
-// var mongoose = require('mongoose');
-// /* connect */
-// mongoose.connect('mongodb://localhost/test-api');
-
-// /* schemas */
-// var SiteSchema = mongoose.Schema({
-//     site: String,    //specified by the api admin
-//     title: String,
-//     items: [{
-//         type: String,
-//         name: String,
-//         content: String,
-//         date: Date
-//     }]
-// });
-
-// /* model */
-// var Site = mongoose.model('Site', SiteSchema);
