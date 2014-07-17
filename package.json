@@ -1,0 +1,24 @@
+{
+  "name": "mu-api",
+  "version": "0.0.1",
+  "description": "api for website storage",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "keywords": [
+    "mu",
+    "api"
+  ],
+  "author": "Josh Mu",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.4.3",
+    "express": "^4.6.1",
+    "mongoose": "^3.8.13",
+    "path": "^0.4.9"
+  },
+  "devDependencies": {
+    "nodemon": "^1.2.1"
+  }
+}
