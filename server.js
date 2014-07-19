@@ -97,7 +97,7 @@ app.get('/', function(req, res) {
             urls: getValues('url', sites),
             refs: getValues('ref', sites)
         };
-        cbResponse(err, data);
+        cbResponse(res, err, data);
     });
 });
 
