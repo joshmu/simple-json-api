@@ -1,3 +1,19 @@
+/*=====================================
+=            MU's JSON API            =
+=====================================*/
+/**
+*
+* A simple API to serve json data to subscribed sites.
+*
+* http://mu-api-warlord.herokuapp.com
+*
+* Author: Josh MU
+* Created: 19/07/2014
+*
+**/
+
+
+//modules
 var express = require('express');
 var http = require('http');
 var path = require('path');
@@ -10,6 +26,11 @@ var mongoUri = process.env.MONGOLAB_URI ||
     process.env.MONGOHQ_URL ||
     'mongodb://localhost/test-api';
 var port = 3000;
+
+/**
+* heroku config | grep MONGOLAB_URI
+* mongo ds041228.mongolab.com:41228/heroku_app27508653 -u <dbuser> -p <dbpass>
+**/
 
 //combine
 var app = express();
