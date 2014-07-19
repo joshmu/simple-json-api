@@ -2,15 +2,15 @@
 =            MU's JSON API            =
 =====================================*/
 /**
-*
-* A simple API to serve json data to subscribed sites.
-*
-* http://mu-api-warlord.herokuapp.com
-*
-* Author: Josh MU
-* Created: 19/07/2014
-*
-**/
+ *
+ * A simple API to serve json data to subscribed sites.
+ *
+ * http://mu-api-warlord.herokuapp.com
+ *
+ * Author: Josh MU
+ * Created: 19/07/2014
+ *
+ **/
 
 
 //modules
@@ -28,9 +28,9 @@ var mongoUri = process.env.MONGOLAB_URI ||
 var port = 3000;
 
 /**
-* heroku config | grep MONGOLAB_URI
-* mongo ds041228.mongolab.com:41228/heroku_app27508653 -u <dbuser> -p <dbpass>
-**/
+ * heroku config | grep MONGOLAB_URI
+ * mongo ds041228.mongolab.com:41228/heroku_app27508653 -u <dbuser> -p <dbpass>
+ **/
 
 //combine
 var app = express();
@@ -113,16 +113,15 @@ server.listen(app.get('port'), function(err) {
 
 app.get('/', function(req, res) {
     showSites(function(err, sites) {
-        var data = {
+        cbResponse(res, err, {
             message: 'This is Mu\'s api, you better know what you are doing.',
             urls: getValues('url', sites),
             refs: getValues('ref', sites)
-        };
-        cbResponse(res, err, data);
+        });
     });
 });
 
-// {object} mu_api >hold all info required for queries to database
+// {object} mu_api > hold all info required for queries to database
 app.param('ref', function(req, res, next, ref) {
     req.mu_api = {
         ref: ref
@@ -262,13 +261,13 @@ function getSite(query, cb) {
     });
 }
 
- /**
-  * update site information
-  * @param  {Object}   query
-  * @param  {Object}   newInfo
-  * @param  {Function} cb
-  * @return {Function}
-  */
+/**
+ * update site information
+ * @param  {Object}   query
+ * @param  {Object}   newInfo
+ * @param  {Function} cb
+ * @return {Function}
+ */
 function updateSite(query, newInfo, cb) {
         newInfo.updated = new Date(); //add updated time
         mongo.connect(mongoUri, function(err, db) {
@@ -374,5 +373,3 @@ function deleteItem(query, cb) {
             });
     });
 }
-
-
