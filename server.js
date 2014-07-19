@@ -111,14 +111,22 @@ server.listen(app.get('port'), function(err) {
 ==============================*/
 //TODO: use regex for the routes for more client flexibility
 
+//TODO: need to fix the get 'sites'
 app.get('/', function(req, res) {
-    showSites(function(err, sites) {
-        cbResponse(res, err, {
+    // showSites(function(err, sites) {
+    //     console.log('error > ', err);
+    //     console.log('sites > ', sites);
+    //     cbResponse(res, err, {
+    //         message: 'This is Mu\'s api, you better know what you are doing.',
+    //         urls: getValues('url', sites),
+    //         refs: getValues('ref', sites)
+    //     });
+    // });
+
+    cbResponse(res, null, {
             message: 'This is Mu\'s api, you better know what you are doing.',
-            urls: getValues('url', sites),
-            refs: getValues('ref', sites)
+            refs: ['mu', 'wong']
         });
-    });
 });
 
 // {object} mu_api > hold all info required for queries to database
