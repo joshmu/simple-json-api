@@ -22,7 +22,7 @@ var mongo = require('mongodb').MongoClient;
 
 //constants
 //mongo uri as per heroku > mongolabs
-var mongoUri = process.env.MONGOLAB_URI ||
+var mongoUri = 'mongodb://joshmu:iampro4life@ds041228.mongolab.com:41228/heroku_app27508653'  || process.env.MONGOLAB_URI ||
     process.env.MONGOHQ_URL ||
     'mongodb://localhost/test-api';
 var port = 3000;
@@ -113,20 +113,15 @@ server.listen(app.get('port'), function(err) {
 
 //TODO: need to fix the get 'sites'
 app.get('/', function(req, res) {
-    // showSites(function(err, sites) {
-    //     console.log('error > ', err);
-    //     console.log('sites > ', sites);
-    //     cbResponse(res, err, {
-    //         message: 'This is Mu\'s api, you better know what you are doing.',
-    //         urls: getValues('url', sites),
-    //         refs: getValues('ref', sites)
-    //     });
-    // });
-
-    cbResponse(res, null, {
+    showSites(function(err, sites) {
+        console.log('error > ', err);
+        console.log('sites > ', sites);
+        cbResponse(res, err, {
             message: 'This is Mu\'s api, you better know what you are doing.',
-            refs: ['mu', 'wong']
+            urls: getValues('url', sites),
+            refs: getValues('ref', sites)
         });
+    });
 });
 
 // {object} mu_api > hold all info required for queries to database
