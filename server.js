@@ -31,6 +31,10 @@ var allowCrossDomain = function(req, res, next) {
 };
 app.use(allowCrossDomain);
 
+//LISTEN
+server.listen(app.get('port'), function(err) {
+    console.log(err || 'Connected on ' + app.get('port'));
+});
 
 
 /**
@@ -78,116 +82,85 @@ app.get('/', function(req, res) {
 });
 
 app.param('ref', function(req, res, next, ref) {
-    req.api_ref = ref;
+    req.mu_api = {
+        ref: ref
+    };
     next();
 });
 
 app.route('/:ref')
     .get(function(req, res) {
-        getSite(req.api_ref, function(err, site) {
-            res.json(err ? err.message : site);
-        });
-    })
-    .post(function(req, res) {
-        res.json({
-            error: 'Cannot add another title.'
+        getSite(req.mu_api, function(err, site) {
+            cbResponse(res, err, site);
         });
     })
     .put(function(req, res) {
-        var newInfo = req.body;
-        updateSiteInfo(req.api_ref, newInfo, function(err){
-            if(err) {
-                res.json({
-                    error: err.message
-                });
-            } else {
-                res.json({
-                    message: 'Site information udpated.'
-                });
-            }
+        updateSite(req.mu_api, req.body, function(err) {
+            cbResponse(res, err, 'Site information updated.');
         });
-
-
-        // console.log('updating ref title');
-        // var title = req.body.title;
-        // console.log('req body > ', req.body);
-        // ref[req.api_ref].title = title;
-        // res.json({
-        //     message: 'Title has been updated.'
-        // });
     });
 
-//TODO: this is where i am upto !
 app.route('/:ref/items')
     .get(function(req, res) {
-        res.json(ref[req.api_ref].items);
+        getItems(req.mu_api, function(err, data) {
+            cbResponse(res, err, data);
+        });
     })
     .post(function(req, res) {
-        var item = req.body;
-        var items = ref[req.api_ref].items;
-        if (!checkExists(items, item.type, item.title)) {
-            ref[req.api_ref].items.push(item);
-            res.json({
-                message: 'item has been added.'
-            });
-        }
+        addItem(req.mu_api, req.body, function(err) {
+            cbResponse(res, err, 'Item has been added.');
+        });
     });
 
 app.param('type', function(req, res, next, type) {
-    req.type = type;
+    req.mu_api.type = type;
     next();
 });
 
 app.param('title', function(req, res, next, title) {
-    req.title = title;
+    req.mu_api.title = title;
     next();
 });
 
 app.route('/:ref/items/:type/:title')
     .get(function(req, res) {
-        // var item = getMockItem(ref[req.api_ref].items, req.type, req.title);
-        //res.json(item);
-        getItem(req.api_ref, req.type, req.title, function(err, data) {
-            if (err) {
-                res.json({
-                    error: 'Cannot find item.'
-                });
-            } else {
-                res.json(data);
-            }
+        getItem(req.mu_api, function(err, data) {
+            cbResponse(res, err, data);
         });
     })
     .put(function(req, res) {
-        var items = ref[req.api_ref].items;
-        var newItem = req.body;
-        var checkUpdate = updateItem(items, req.type, req.title, newItem);
-        if (checkUpdate) {
-            res.json({
-                message: 'Item updated.'
-            });
-        } else {
-            res.json({
-                message: 'Item not found.'
-            });
-        }
+        updateItem(req.mu_api, req.body, function(err, data) {
+            cbResponse(res, err, 'Item udpated.');
+        });
     })
     .delete(function(req, res) {
-        var items = ref[req.api_ref].items;
-        var checkDelete = deleteItem(items, req.type, req.title);
-        if (checkDelete) {
-            res.json({
-                message: 'Item deleted.'
-            });
-        } else {
-            res.json({
-                message: 'Item not found.'
-            });
-        }
+        deleteItem(req.mu_api, function(err, data) {
+            cbResponse(res, err, 'Item deleted');
+        });
     });
 
-server.listen(app.get('port'), function(err) {
-    console.log(err || 'Connected on ' + app.get('port'));
-});
+/**
+ * handle the response to client
+ * @param  {object} res  server response
+ * @param  {object||string} err  error object or custom message
+ * @param  {object||string} data json data or custom message
+ */
+function cbResponse(res, err, data) {
+    function errMsgObj(err) {
+        return typeof err === 'string' ? {
+            error: err
+        } : {
+            error: err.message
+        };
+    }
+
+    function dataMsgObj(data) {
+        return typeof data === 'string' ? {
+            message: data
+        } : data;
+    }
+    res.json(err ? errMsgObj(err) : dataMsgObj(data));
+}
 
 
 /**
@@ -197,15 +170,11 @@ server.listen(app.get('port'), function(err) {
 function showSites(cb) {
     mongo.connect(mongoUri, function(err, db) {
         if (err) return cb(err);
-        db.collection('site')
+        db.collection('sites')
             .find()
-            .toArray(function(err, res) {
-                if (err) {
-                    cb(err);
-                } else {
-                    cb(null, res);
-                }
+            .toArray(function(err, data) {
                 db.close();
+                return err ? cb(err) : cb(null, data);
             });
     });
 }
@@ -234,19 +203,15 @@ function getValues(key, arr) {
  * @param  {string}   ref key from obj
  * @param  {Function} cb  callback(error, results)
  */
-function getSite(ref, cb) {
+function getSite(query, cb) {
     mongo.connect(mongoUri, function(err, db) {
         if (err) return cb(err);
-        db.collection('site', function(err, c) {
-            if (err) return cb(err);
-            c.find({
-                ref: ref
-            }).toArray(function(err, res) {
-                if (err) return cb(err);
-                cb(null, res);
+        db.collection('sites')
+            .find(query)
+            .toArray(function(err, data) {
                 db.close();
+                return err ? cb(err) : cb(null, data);
             });
-        });
     });
 }
 
@@ -257,22 +222,42 @@ function getSite(ref, cb) {
  * @param  {object}   newInfo new content to update with
  * @param  {Function} cb      callback(error, results)
  */
-function updateSiteInfo(ref, newInfo, cb){
-    mongo.connect(mongoUri, function(err, db){
-        if(err) return cb(err);
-        db.collection('site', function(err, c){
-            if(err) return cb(err);
-            //this may overwrite document! be careful
-            c.update({ref : ref}, {$set: newInfo}, function(err, res){
-                if(err) {
-                    return cb(err);
-                } else {
-                    cb(null, res);
-                }
-            });
+// function updateSite(ref, newInfo, cb) {
+//     mongo.connect(mongoUri, function(err, db) {
+//         if (err) return cb(err);
+//         db.collection('sites', function(err, c) {
+//             if (err) return cb(err);
+//             //this may overwrite document! be careful
+//             c.update({
+//                 ref: ref
+//             }, {
+//                 $set: newInfo
+//             }, function(err, res) {
+//                 if (err) {
+//                     return cb(err);
+//                 } else {
+//                     cb(null, res);
+//                 }
+//             });
+//         });
+//     });
+// }
+
+function updateSite(query, newInfo, cb) {
+    newInfo.updated = new Date();   //add updated time
+        mongo.connect(mongoUri, function(err, db) {
+            if (err) return cb(err);
+            db.collection('sites')
+                .update(query, {
+                    $set: newInfo
+                }, function(err, data) {
+                    return err ? cb(err) : cb(null, data);
+                });
         });
-    });
-}
+    }
+    //TODO: restrict update to only specified fields
+
+
 
 //helper function to grab correct item
 // function getMockItem(items, type, title) {
@@ -285,51 +270,125 @@ function updateSiteInfo(ref, newInfo, cb){
 //     }, []);
 // }
 
-function getItem(ref, type, title, cb) {
+function getItems(query, cb) {
     mongo.connect(mongoUri, function(err, db) {
-        if (err) {
-            cb(err);
-            return;
-        }
-        db.collection('item')
-            .find({
-                ref: ref,
-                type: type,
-                title: title
-            }).toArray(function(err, results) {
-                if (err) {
-                    cb(err);
-                } else {
-                    cb(null, results);
-                }
-                db.close();
+        if (err) return cb(err);
+        db.collection('items')
+            .find(query)
+            .toArray(function(err, data) {
+                return err ? cb(err) : cb(null, data);
             });
     });
 }
 
-//find and update item
-function updateItem(items, type, title, newItem) {
-    var updated = false;
-    items.forEach(function(item, index, arr) {
-        if (item.type === type && item.title === title) {
-            extendObj(item, newItem);
-            updated = true;
-        }
+/**
+ * get specific item from database
+ *
+ * @param  {Object}   query
+ * @param  {Function} cb    >callback(err, data)
+ *
+ * @return {Function}
+ */
+function getItem(query, cb) {
+    mongo.connect(mongoUri, function(err, db) {
+        if (err) return cb(err);
+        db.collection('items')
+            .find(query)
+            .toArray(function(err, data) {
+                return err ? cb(er) : cb(null, data);
+            });
     });
-    return updated;
 }
 
-//find and delete item
-function deleteItem(items, type, title) {
-    var deleted = false;
-    items.forEach(function(item, index, arr) {
-        if (item.type === type && item.title === title) {
-            //delete
-            arr.splice(index, 1);
-            deleted = true;
-        }
+
+/**
+ * add an item to the database
+ *
+ * @param {String}   ref
+ * @param {Object}   item
+ * @param {Function} cb   >callback(err)
+ *
+ * @return {Function}
+ */
+function addItem(query, item, cb) {
+    item.ref = query.ref; //item needs to include ref
+    item.created = new Date();  //add creation time
+    mongo.connect(mongoUri, function(err, db) {
+        if (err) return cb(err);
+        db.collection('items')
+            .insert(item, function(err) {
+                return err ? cb(err) : cb(null);
+            });
     });
-    return deleted;
+}
+
+/**
+ * update a specific item
+ *
+ * @param  {String}   ref
+ * @param  {String}   type    >type of item
+ * @param  {String}   title   >title of item
+ * @param  {Object}   newItem
+ * @param  {Function} cb      >callback(err, data)
+ *
+ * @return {Function}
+ */
+function updateItem(query, newItem, cb) {
+    newItem.updated = new Date();   //include updated time
+    mongo.connect(mongoUri, function(err, db) {
+        if (err) return cb(err);
+        db.collection('items')
+            .update(query, {
+                $set: newItem
+            }, function(err, data) {
+                db.close();
+                return err ? cb(err) : cb(null, err);
+            });
+    });
+}
+
+
+//find and update item
+// function updateItem(items, type, title, newItem) {
+//     var updated = false;
+//     items.forEach(function(item, index, arr) {
+//         if (item.type === type && item.title === title) {
+//             extendObj(item, newItem);
+//             updated = true;
+//         }
+//     });
+//     return updated;
+// }
+
+// //find and delete item
+// function deleteItem(items, type, title) {
+//     var deleted = false;
+//     items.forEach(function(item, index, arr) {
+//         if (item.type === type && item.title === title) {
+//             //delete
+//             arr.splice(index, 1);
+//             deleted = true;
+//         }
+//     });
+//     return deleted;
+// }
+
+/**
+ * remove item
+ *
+ * @param  {Object}   query
+ * @param  {Function} cb
+ *
+ * @return {Function}
+ */
+function deleteItem(query, cb) {
+    mongo.connect(mongoUri, function(err, db) {
+        if (err) return cb(err);
+        db.collection('items')
+            .remove(query, function(err) {
+                return err ? cb(err) : cb(null);
+            });
+    });
 }
 
 //check if item with type & title already exists
@@ -353,14 +412,14 @@ function extendObj(obj1, obj2) {
  *
  * [SITE]
  *     ->url
- *     ->dbRef
+ *     ->ref
  *     ->admin
  *     ->visited
  *     ->created
  *     ->security
  *
  * [ITEM]
- *     ->dbRef
+ *     ->ref
  *     ->type
  *     ->name
  *     ->content
@@ -442,20 +501,20 @@ function extendObj(obj1, obj2) {
 //     });
 // });
 
-var mu = {
-    ref: 'mu',
-    url: 'joshmu.com',
-    title: 'Mu',
-    items: [{
-        type: 'about',
-        title: 'About Me',
-        content: 'This is info about me, blah blah blah.'
-    }, {
-        type: 'contact',
-        title: 'My Contact Info',
-        content: '119A Seaforth Cres, Seaforth, NSW 2092'
-    }]
-};
+// var mu = {
+//     ref: 'mu',
+//     url: 'joshmu.com',
+//     title: 'Mu',
+//     items: [{
+//         type: 'about',
+//         title: 'About Me',
+//         content: 'This is info about me, blah blah blah.'
+//     }, {
+//         type: 'contact',
+//         title: 'My Contact Info',
+//         content: '119A Seaforth Cres, Seaforth, NSW 2092'
+//     }]
+// };
 
 // mongo.connect(mongoUri, function(err, db){
 //     if(err) throw err;
@@ -488,29 +547,29 @@ var mu = {
 //     console.log(docs);
 // });
 
-var wong = {
-    ref: 'wong',
-    url: 'jesswong.com.au',
-    title: 'JESS WONG',
-    items: [{
-        type: 'about',
-        title: 'Info on Me!',
-        content: 'Did you know I can dance!?'
-    }, {
-        type: 'article',
-        title: 'Time to start moving',
-        content: 'It\'s that year again where we should all get up off the couch and start moving around!  Let\'s eat healthy and happily!'
-    }, {
-        type: 'contact',
-        title: 'Message me',
-        content: 'jesslmwong@gmail.com'
-    }]
-};
+// var wong = {
+//     ref: 'wong',
+//     url: 'jesswong.com.au',
+//     title: 'JESS WONG',
+//     items: [{
+//         type: 'about',
+//         title: 'Info on Me!',
+//         content: 'Did you know I can dance!?'
+//     }, {
+//         type: 'article',
+//         title: 'Time to start moving',
+//         content: 'It\'s that year again where we should all get up off the couch and start moving around!  Let\'s eat healthy and happily!'
+//     }, {
+//         type: 'contact',
+//         title: 'Message me',
+//         content: 'jesslmwong@gmail.com'
+//     }]
+// };
 
-var db = {
-    'mu': mu,
-    'wong': wong
-};
+// var db = {
+//     'mu': mu,
+//     'wong': wong
+// };
 
 
 
