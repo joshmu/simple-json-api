@@ -22,7 +22,7 @@ var mongo = require('mongodb').MongoClient;
 
 //constants
 //mongo uri as per heroku > mongolabs
-var mongoUri = 'mongodb://joshmu:iampro4life@ds041228.mongolab.com:41228/heroku_app27508653'  || process.env.MONGOLAB_URI ||
+var mongoUri = process.env.MONGOLAB_URI ||
     process.env.MONGOHQ_URL ||
     'mongodb://localhost/test-api';
 var port = 3000;
@@ -30,6 +30,7 @@ var port = 3000;
 /**
  * heroku config | grep MONGOLAB_URI
  * mongo ds041228.mongolab.com:41228/heroku_app27508653 -u <dbuser> -p <dbpass>
+ * 'mongodb://joshmu:iampro4life@ds041228.mongolab.com:41228/heroku_app27508653'
  **/
 
 //combine
