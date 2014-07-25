@@ -30,7 +30,7 @@ var port = 3000;
 /**
  * heroku config | grep MONGOLAB_URI
  * mongo ds041228.mongolab.com:41228/heroku_app27508653 -u <dbuser> -p <dbpass>
- * 'mongodb://joshmu:iampro4life@ds041228.mongolab.com:41228/heroku_app27508653'
+* 'mongodb://<dbuser>:<dbpass>@ds041228.mongolab.com:41228/heroku_app27508653'
  **/
 
 //combine
